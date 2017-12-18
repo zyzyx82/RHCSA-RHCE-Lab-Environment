@@ -22,7 +22,7 @@
   register: ifcfg_eth1_state
 
 - name: modify private connection
-  shell: nmcli connection modify Wired\ connection\ 1 connection.id eth1 ipv4.addresses {{ private_ipv4_address }}/24 ipv4.dns {{ ipa_ipv4 }} +ipv4.dns {{ ansible_dns.nameservers[0] }} +ipv4.dns {{ google_dns4 }} ipv6.addresses {{ private_ipv6_address }}/24 ipv6.dns {{ ipa_ipv6 }} ipv4.method manual ipv6.method manual
+  shell: nmcli connection modify Wired\ connection\ 1 connection.id eth1 ipv4.addresses {{ private_ipv4_address }}/24 ipv4.dns {{ ansible_dns.nameservers[0] }} +ipv4.dns {{ google_dns4 }} ipv6.addresses {{ private_ipv6_address }}/24 ipv6.dns {{ ipa_ipv6 }} ipv4.method manual ipv6.method manual
   when: ifcfg_eth1_state.stat.exists == false
 
 - name: name private connection 'System eth1'
@@ -41,6 +41,13 @@
     regexp: ^PasswordAuthentication no
     replace: PasswordAuthentication yes
   register: allow_ssh_password
+
+- name: delete first DNS 192.168.4.200 from resolv.con
+  lineinfile:
+    dest: /etc/resolv.conf
+    state: absent
+    regexp: ^nameserver 192.168.4.200
+  when: inventory_hostname_short == "labipa"
 
 - name: restart sshd
   service:
@@ -66,6 +73,13 @@
   yum:
     name: epel-release
     state: present
+    
+- name: Install python-urllib3 and python-netaddr to prevent issue with ipa configuration
+  yum: name={{ item }} state=present
+  with_items:
+    - python-urllib3
+    - python-netaddr
+  when: inventory_hostname_short == "labipa"
 
 - name: Install Bash Completion (for nmcli)
   yum: name={{ item }} state=present
